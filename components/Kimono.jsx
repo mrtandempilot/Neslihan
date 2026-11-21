@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { restoreFaces } from '../lib/faceRestore';
 
 const DEFAULT_PROMPT =
   "Keep every person's face, identity and pose exactly the same. Only change their outfits to traditional Japanese kimonos with an obi. Keep the Kyoto background and lighting.";
@@ -31,6 +32,9 @@ export default function Kimono() {
   const [src, setSrc] = useState(null);
   const [refs, setRefs] = useState([]); // [{ image, who }]
   const [out, setOut] = useState(null);
+  const [raw, setRaw] = useState(null);
+  const [keepFace, setKeepFace] = useState(true);
+  const [status, setStatus] = useState('');
   const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
   const [pass, setPass] = useState('');
   const [busy, setBusy] = useState(false);
@@ -57,7 +61,7 @@ export default function Kimono() {
   const delRef = i => setRefs(r => r.filter((_, j) => j !== i));
 
   async function run() {
-    setBusy(true); setErr(''); setOut(null);
+    setBusy(true); setErr(''); setOut(null); setRaw(null); setStatus('Kıyafet oluşturuluyor… (10–40 sn)');
     try {
       const r = await fetch('/api/kimono', {
         method: 'POST',
@@ -66,8 +70,21 @@ export default function Kimono() {
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.error || (r.status === 413 ? 'Fotoğraflar çok büyük, daha az örnek dene.' : 'Hata: ' + r.status));
-      setOut(d.image);
-    } catch (x) { setErr(x.message); }
+      setRaw(d.image);
+      if (keepFace) {
+        setStatus('Orijinal yüzler geri yerleştiriliyor…');
+        try {
+          const f = await restoreFaces(src, d.image);
+          setOut(f.image);
+          setStatus(f.faces ? `${f.faces} yüz orijinal fotoğraftan birebir geri yerleştirildi.` : 'Orijinal fotoğrafta yüz bulunamadı; AI sonucu gösteriliyor.');
+        } catch (x) {
+          setOut(d.image);
+          setStatus('Yüz geri yerleştirme başarısız oldu: ' + x.message);
+        }
+      } else {
+        setOut(d.image); setStatus('');
+      }
+    } catch (x) { setErr(x.message); setStatus(''); }
     setBusy(false);
   }
 
@@ -111,11 +128,17 @@ export default function Kimono() {
           {refs.length > 0 && <small style={{ color: '#6b7280' }}>Örnek elbise eklendiğinde bu alan ek talimat olarak kullanılır (varsayılan metin gönderilmez).</small>}
         </label>
 
+        <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input type="checkbox" checked={keepFace} onChange={e => setKeepFace(e.target.checked)} />
+          <span><b>Yüzleri sıfır değişiklikle koru</b> (orijinal yüz pikselleri sonuca geri yapıştırılır)</span>
+        </label>
+
         <input type="password" placeholder="Şifre (ayarlıysa)" value={pass} onChange={e => setPass(e.target.value)} style={{ ...input, maxWidth: 280 }} />
         <button onClick={run} disabled={!src || busy}
           style={{ padding: '12px 20px', borderRadius: 8, border: 0, background: busy || !src ? '#9ca3af' : '#b91c1c', color: '#fff', fontWeight: 600, cursor: src && !busy ? 'pointer' : 'default', justifySelf: 'start' }}>
-          {busy ? 'Oluşturuluyor… (10–40 sn)' : 'Kıyafeti değiştir'}
+          {busy ? 'Çalışıyor…' : 'Kıyafeti değiştir'}
         </button>
+        {status && <div style={{ color: '#374151' }}>{status}</div>}
         {err && <div style={{ color: '#b91c1c' }}>{err}</div>}
       </div>
 
@@ -123,6 +146,7 @@ export default function Kimono() {
         {src && <div style={{ ...card, flex: '1 1 300px', minWidth: 0 }}><b>Orijinal</b><img src={src} alt="Orijinal" style={imgS} /></div>}
         {out && <div style={{ ...card, flex: '1 1 300px', minWidth: 0 }}><b>Sonuç</b><img src={out} alt="Sonuç" style={imgS} />
           <a href={out} download="kimono.png" style={{ display: 'inline-block', marginTop: 8 }}>⬇ İndir</a></div>}
+        {raw && raw !== out && <div style={{ ...card, flex: '1 1 300px', minWidth: 0 }}><b>Ham AI sonucu</b> <small style={{ color: '#6b7280' }}>(karşılaştırma için)</small><img src={raw} alt="Ham AI" style={imgS} /></div>}
       </div>
     </main>
   );
