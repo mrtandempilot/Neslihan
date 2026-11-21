@@ -36,6 +36,10 @@ function Picker({ title, value, onPick }) {
   );
 }
 
+function ratioOf(src) {
+  return new Promise(res => { const i = new Image(); i.onload = () => res(i.width / i.height); i.onerror = () => res(0); i.src = src; });
+}
+
 export default function Kimono() {
   const [person, setPerson] = useState(null);
   const [outfit, setOutfit] = useState(null);
@@ -59,7 +63,7 @@ export default function Kimono() {
       const r = await fetch('/api/kimono', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-kimono-password': pass },
-        body: JSON.stringify({ image: person, refs: [{ image: outfit, who: 'the person' }] }),
+        body: JSON.stringify({ image: person, refs: [{ image: outfit, who: 'the person' }], aspect: await ratioOf(person) }),
       });
       const d = await r.json().catch(() => ({}));
       if (r.status === 401) { setNeedPass(true); throw new Error('Şifre gerekli.'); }

@@ -35,6 +35,11 @@ export async function POST(req) {
   if (typeof person !== 'string' || !IMG_RE.test(person)) return Response.json({ error: 'Kişinin fotoğrafı eksik.' }, { status: 400 });
   if (typeof outfit !== 'string' || !IMG_RE.test(outfit)) return Response.json({ error: 'Örnek giysi fotoğrafı eksik.' }, { status: 400 });
 
+  const RATIOS = ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'];
+  const ar = Number(body.aspect) > 0 ? Number(body.aspect) : 0;
+  const val = x => { const [w, h] = x.split(':').map(Number); return w / h; };
+  const aspect = ar ? RATIOS.reduce((b, x) => (Math.abs(Math.log(val(x) / ar)) < Math.abs(Math.log(val(b) / ar)) ? x : b)) : null;
+
   const content = [
     { type: 'text', text: PROMPT },
     { type: 'text', text: 'IMAGE 1 (the person):' },
@@ -52,7 +57,7 @@ export async function POST(req) {
       'HTTP-Referer': 'https://neslihan-rho.vercel.app',
       'X-Title': 'Kiyafet Giydir',
     },
-    body: JSON.stringify({ model: MODEL, modalities: ['image', 'text'], messages: [{ role: 'user', content }] }),
+    body: JSON.stringify({ model: MODEL, modalities: ['image', 'text'], messages: [{ role: 'user', content }], ...(aspect ? { image_config: { aspect_ratio: aspect } } : {}) }),
   });
 
   const data = await r.json().catch(() => null);
