@@ -1,4 +1,4 @@
-export const metadata = { title: 'Kimono Editor', robots: { index: false, follow: false } };
+export const metadata = { title: 'Kıyafet Giydir', robots: { index: false, follow: false } };
 export const viewport = { width: 'device-width', initialScale: 1 };
 
 export default function RootLayout({ children }) {
